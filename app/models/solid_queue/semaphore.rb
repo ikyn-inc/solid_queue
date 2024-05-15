@@ -41,37 +41,37 @@ module SolidQueue
       end
 
       private
-        attr_accessor :job
 
-        def attempt_creation
+      attr_accessor :job
+
+      def attempt_creation
+        ActiveRecord::Base.transaction(requires_new: true) do
           Semaphore.create!(key: key, value: limit - 1, expires_at: expires_at)
           true
-        rescue ActiveRecord::RecordNotUnique
-          if limit == 1 then false
-          else
-            attempt_decrement
-          end
         end
+      rescue ActiveRecord::RecordNotUnique
+        limit == 1 ? false : attempt_decrement
+      end
 
-        def attempt_decrement
-          Semaphore.available.where(key: key).update_all([ "value = value - 1, expires_at = ?", expires_at ]) > 0
-        end
+      def attempt_decrement
+        Semaphore.available.where(key: key).update_all(["value = value - 1, expires_at = ?", expires_at]) > 0
+      end
 
-        def attempt_increment
-          Semaphore.where(key: key, value: ...limit).update_all([ "value = value + 1, expires_at = ?", expires_at ]) > 0
-        end
+      def attempt_increment
+        Semaphore.where(key: key, value: ...limit).update_all(["value = value + 1, expires_at = ?", expires_at]) > 0
+      end
 
-        def key
-          job.concurrency_key
-        end
+      def key
+        job.concurrency_key
+      end
 
-        def expires_at
-          job.concurrency_duration.from_now
-        end
+      def expires_at
+        job.concurrency_duration.from_now
+      end
 
-        def limit
-          job.concurrency_limit || 1
-        end
+      def limit
+        job.concurrency_limit || 1
+      end
     end
   end
 end
